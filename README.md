@@ -4,6 +4,16 @@
 
 ## 在新 Linux 服务器上安装
 
+**新机一键安装。** 适用于使用 systemd 的 Linux amd64 / arm64。先安装 [GitHub CLI](https://cli.github.com/)，并用有私有仓库读取权限的账号执行一次 `gh auth login --hostname github.com`。然后复制下面这一行：
+
+```bash
+( f=$(mktemp) && trap 'rm -f "$f"' EXIT && gh release download 'v0.107.80+operator.5' -R Avlonjune7/AdGuardHome-Operator -p install-linux.sh -O - > "$f" && sh "$f" )
+```
+
+脚本自动识别架构、下载同一版本的安装包、校验 SHA-256，并安装到 `/opt/AdGuardHome`、启动系统服务。普通用户需有 sudo 权限。安装成功后访问 `http://服务器IP:3000` 完成设置。检测到已有服务或安装目录时，脚本会退出。已有实例请按文末升级步骤操作。
+
+**手动下载安装**
+
 适用于使用 systemd 的 Linux x86_64（amd64）和 ARM64（aarch64）。安装包包含中文管理界面，解压即可运行。已有实例请先下载并校验安装包，然后按下方「升级已有实例与回退」操作。
 
 **1. 下载安装包。** 仓库为私有仓库。可以在浏览器登录 GitHub，从 [当前版本 Release](https://github.com/Avlonjune7/AdGuardHome-Operator/releases/tag/v0.107.80%2Boperator.5) 的 Assets 下载对应架构的 `.tar.gz` 和同名 `.sha256` 文件，再将两者传到服务器。也可以在装有 GitHub CLI 的服务器上运行：
