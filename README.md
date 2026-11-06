@@ -4,64 +4,15 @@
 
 ## 在新 Linux 服务器上安装
 
-**从自己的 Windows 电脑安装（推荐）。** 在已登录 GitHub CLI 的电脑上，从本仓库目录运行下面一行，把地址换成新机的 root SSH 地址。电脑会从私有 Release 下载安装包，通过一次 SSH 连接传给新机；新机只需要 Linux、systemd 和 SSH。支持配置在 SSH config 中的 root 主机别名。
-
-```powershell
-.\scripts\install-via-ssh.ps1 root@新服务器IP
-```
-
-**个人服务器一键安装（curl）。** 从部署者保管的私密命令文件复制整行，在新 Linux 服务器执行。命令使用专用下载密钥连接自有 HTTPS 下载服务，自动识别架构、校验安装包并启动服务，无需 GitHub CLI 或 GitHub 账号。命令持有人可以下载安装包，请勿公开转发。下载服务器的管理员可用 `sudo cat /root/agh-private-install.txt` 取回命令。
-
-**通过私有 GitHub Release 安装（备选）。** 适用于使用 systemd 的 Linux amd64 / arm64。先安装 [GitHub CLI](https://cli.github.com/)，并用有私有仓库读取权限的账号执行一次 `gh auth login --hostname github.com`。然后复制下面这一行：
+在使用 systemd 的新 Linux 服务器上执行：
 
 ```bash
-( f=$(mktemp) && trap 'rm -f "$f"' EXIT && gh release download 'v0.107.80+operator.5' -R Avlonjune7/AdGuardHome-Operator -p install-linux.sh -O - > "$f" && sh "$f" )
+curl -fsSL https://github.com/Avlonjune7/AdGuardHome-Operator/releases/latest/download/install.sh | sh
 ```
 
-脚本自动识别架构、下载同一版本的安装包、校验 SHA-256，并安装到 `/opt/AdGuardHome`、启动系统服务。普通用户需有 sudo 权限。安装成功后访问 `http://服务器IP:3000` 完成设置。检测到已有服务或安装目录时，脚本会退出。已有实例请按文末升级步骤操作。
+脚本自动选择 amd64 或 arm64 安装包，校验 SHA-256 并启动系统服务。以 root 或有 sudo 权限的账号执行。已有安装会退出，请使用下方的升级步骤。手动下载或升级时，可从 [GitHub Releases](https://github.com/Avlonjune7/AdGuardHome-Operator/releases/latest) 获取对应架构的安装包与校验文件。
 
-**手动下载安装**
-
-适用于使用 systemd 的 Linux x86_64（amd64）和 ARM64（aarch64）。安装包包含中文管理界面，解压即可运行。已有实例请先下载并校验安装包，然后按下方「升级已有实例与回退」操作。
-
-**1. 下载安装包。** 仓库为私有仓库。可以在浏览器登录 GitHub，从 [当前版本 Release](https://github.com/Avlonjune7/AdGuardHome-Operator/releases/tag/v0.107.80%2Boperator.5) 的 Assets 下载对应架构的 `.tar.gz` 和同名 `.sha256` 文件，再将两者传到服务器。也可以在装有 GitHub CLI 的服务器上运行：
-
-```bash
-set -e
-case "$(uname -m)" in
-  x86_64) arch=amd64 ;;
-  aarch64|arm64) arch=arm64 ;;
-  *) echo "此版本没有适配当前架构的安装包"; exit 1 ;;
-esac
-pkg="AdGuardHome-linux-${arch}.tar.gz"
-mkdir -p "$HOME/adguard-operator.5"
-cd "$HOME/adguard-operator.5"
-gh auth status --hostname github.com || gh auth login --hostname github.com
-gh release download 'v0.107.80+operator.5' -R Avlonjune7/AdGuardHome-Operator \
-  -p "$pkg" -p "$pkg.sha256"
-```
-
-**2. 校验并安装为系统服务。** 在两个下载文件所在目录执行。校验通过后才解压，运行时应显示 `v0.107.80+operator.5`。
-
-```bash
-set -e
-case "$(uname -m)" in
-  x86_64) pkg=AdGuardHome-linux-amd64.tar.gz ;;
-  aarch64|arm64) pkg=AdGuardHome-linux-arm64.tar.gz ;;
-  *) echo "暂不支持当前架构"; exit 1 ;;
-esac
-sha256sum -c "$pkg.sha256"
-tar -xzf "$pkg"
-cd AdGuardHome
-./AdGuardHome --version
-# 仅用于首次安装；升级请从当前目录执行文末的升级步骤。
-sudo install -d /opt/AdGuardHome
-sudo install -m 0755 ./AdGuardHome /opt/AdGuardHome/AdGuardHome
-sudo /opt/AdGuardHome/AdGuardHome -s install
-systemctl is-active AdGuardHome
-```
-
-**3. 完成首次设置。** 浏览器访问 `http://服务器IP:3000`，按向导设置管理账号、管理端口和 DNS 监听端口。首次配置时仅向自己的管理 IP 开放 TCP 3000。如果准备让面板管理证书，可选 8080 作为管理端口，并为证书验证预留 TCP 80。
+浏览器访问 `http://服务器IP:3000`，按向导设置管理账号、管理端口和 DNS 监听端口。首次配置时仅向自己的管理 IP 开放 TCP 3000。如果准备让面板管理证书，可选 8080 作为管理端口，并为证书验证预留 TCP 80。
 
 ## 配置加密 DNS 和证书续签
 

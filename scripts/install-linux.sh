@@ -1,5 +1,5 @@
 #!/bin/sh
-# Fresh Linux/systemd installation from the private operator release.
+# Fresh Linux/systemd installation from the operator release.
 set -eu
 
 fail() {
@@ -17,13 +17,13 @@ as_root() {
 
 main() {
     repo=Avlonjune7/AdGuardHome-Operator
-    tag=v0.107.80+operator.5
+    tag=v0.107.80%2Boperator.5
     dest=/opt/AdGuardHome
     [ "$(uname -s)" = Linux ] && [ -d /run/systemd/system ] ||
         fail '需要使用 systemd 的 Linux 服务器。'
     case "$(uname -m)" in
-        x86_64) arch=amd64 ;;
-        arm64|aarch64) arch=arm64 ;;
+        x86_64) arch=amd64; digest=5581e7600f66cd948e83e6514facd607091d5870d01d751be0143fab88524fd3 ;;
+        arm64|aarch64) arch=arm64; digest=b18c65625e66cf407e0162a03d923b3b81b35d7a2e7cdc7f250221c6d31be28c ;;
         *) fail '支持的架构为 amd64 和 arm64。' ;;
     esac
     for tool in sha256sum tar systemctl mktemp install; do
@@ -42,14 +42,14 @@ main() {
     trap 'exit 1' HUP INT TERM
     pkg="AdGuardHome-linux-$arch.tar.gz"
     if [ "$#" -eq 1 ]; then
-        cp -- "$1/$pkg" "$1/$pkg.sha256" "$tmp/"
+        cp -- "$1/$pkg" "$tmp/"
     else
-        command -v gh >/dev/null || fail '下载私有发布包需要 gh。'
-        gh release download "$tag" -R "$repo" -p "$pkg" -p "$pkg.sha256" -D "$tmp"
+        base="https://github.com/$repo/releases/download/$tag"
+        curl -fsSL --retry 2 --proto '=https' --proto-redir '=https' "$base/$pkg" -o "$tmp/$pkg"
     fi
     (
         cd "$tmp"
-        sha256sum -c "$pkg.sha256"
+        printf '%s  %s\n' "$digest" "$pkg" | sha256sum -c -
         tar -xzf "$pkg" AdGuardHome/AdGuardHome
         ./AdGuardHome/AdGuardHome --version
     )
