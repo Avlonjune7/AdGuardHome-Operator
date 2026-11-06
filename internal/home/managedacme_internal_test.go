@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
+	"encoding/json"
 	"encoding/pem"
 	"io"
 	"net"
@@ -119,4 +120,59 @@ func TestHTTPSCertificateRotationKeepsConnection(t *testing.T) {
 	state.replaceCertificate(b)
 	require.EqualValues(t, 1, getSerial(client))
 	require.EqualValues(t, 2, getSerial(newClient()))
+}
+
+func TestACMEConfigValidation(t *testing.T) {
+	for _, tt := range []struct {
+		name, method, target, token string
+		valid                       bool
+	}{
+		{"legacy HTTP", "", "203.0.113.7", "", true},
+		{"HTTP domain", "http", "dns.example.org", "", true},
+		{"CF domain", "cloudflare", "dns.example.org", "test_only-123", true},
+		{"CF IPv4", "cloudflare", "203.0.113.7", "test_only-123", false},
+		{"CF IPv6", "cloudflare", "2001:db8::7", "test_only-123", false},
+		{"CF missing token", "cloudflare", "dns.example.org", "", false},
+		{"unknown method", "other", "dns.example.org", "", false},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			c := acmeConfig{acmeSettings: acmeSettings{Method: tt.method, Target: tt.target, Email: "admin@example.org"}, CFToken: tt.token}
+			if !tt.valid {
+				require.Error(t, c.validate())
+				return
+			}
+			require.NoError(t, c.validate())
+			if tt.method == "" {
+				require.Equal(t, "http", c.Method)
+			}
+		})
+	}
+}
+
+type acmeTestRegistrar map[string]http.HandlerFunc
+
+func (r acmeTestRegistrar) Register(_, path string, h http.HandlerFunc) { r[path] = h }
+
+func TestACMEStatusAfterRestart(t *testing.T) {
+	dir := t.TempDir()
+	home := filepath.Join(dir, "managed-acme")
+	require.NoError(t, os.Mkdir(home, 0700))
+	cfg := acmeConfig{acmeSettings: acmeSettings{Target: "dns.example.org", Email: "admin@example.org", Method: "cloudflare"}, CFToken: "test-secret"}
+	data, err := json.Marshal(cfg)
+	require.NoError(t, err)
+	require.NoError(t, atomicACME(filepath.Join(home, "settings.json"), data))
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	r := acmeTestRegistrar{}
+	startACME(ctx, dir, false, r, http.NewServeMux(), nil)
+	w := httptest.NewRecorder()
+	r["/control/acme/status"](w, httptest.NewRequest("GET", "/control/acme/status", nil))
+	require.NotContains(t, w.Body.String(), cfg.CFToken)
+	var status struct {
+		Settings   acmeSettings
+		HasCFToken bool
+	}
+	require.NoError(t, json.Unmarshal(w.Body.Bytes(), &status))
+	require.True(t, status.HasCFToken)
+	require.Equal(t, cfg.acmeSettings, status.Settings)
 }
