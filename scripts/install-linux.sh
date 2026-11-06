@@ -26,13 +26,13 @@ main() {
         arm64|aarch64) arch=arm64 ;;
         *) fail '支持的架构为 amd64 和 arm64。' ;;
     esac
-    for tool in gh sha256sum tar systemctl mktemp install; do
+    for tool in sha256sum tar systemctl mktemp install; do
         command -v "$tool" >/dev/null || fail "缺少命令：$tool"
     done
     if [ "$(id -u)" != 0 ]; then
         command -v sudo >/dev/null || fail '安装系统服务需要 sudo 或 root。'
     fi
-    load_state=$(systemctl show AdGuardHome.service -p LoadState --value)
+    load_state=$(systemctl show AdGuardHome.service -p LoadState --value) || [ "$load_state" = not-found ] || fail '无法读取 systemd 状态。'
     if [ "$load_state" != not-found ] || [ -e "$dest" ] || [ -L "$dest" ]; then
         fail '检测到已有服务或安装目录。请按 README 的升级步骤操作。'
     fi
@@ -41,7 +41,12 @@ main() {
     trap 'rm -rf -- "$tmp"' EXIT
     trap 'exit 1' HUP INT TERM
     pkg="AdGuardHome-linux-$arch.tar.gz"
-    gh release download "$tag" -R "$repo" -p "$pkg" -p "$pkg.sha256" -D "$tmp"
+    if [ "$#" -eq 1 ]; then
+        cp -- "$1/$pkg" "$1/$pkg.sha256" "$tmp/"
+    else
+        command -v gh >/dev/null || fail '下载私有发布包需要 gh。'
+        gh release download "$tag" -R "$repo" -p "$pkg" -p "$pkg.sha256" -D "$tmp"
+    fi
     (
         cd "$tmp"
         sha256sum -c "$pkg.sha256"

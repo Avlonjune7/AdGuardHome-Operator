@@ -4,6 +4,12 @@
 
 ## 在新 Linux 服务器上安装
 
+**从自己的 Windows 电脑安装（推荐）。** 在已登录 GitHub CLI 的电脑上，从本仓库目录运行下面一行，把地址换成新机的 root SSH 地址。电脑会从私有 Release 下载安装包，通过一次 SSH 连接传给新机；新机只需要 Linux、systemd 和 SSH。支持配置在 SSH config 中的 root 主机别名。
+
+```powershell
+.\scripts\install-via-ssh.ps1 root@新服务器IP
+```
+
 **个人服务器一键安装（curl）。** 从部署者保管的私密命令文件复制整行，在新 Linux 服务器执行。命令使用专用下载密钥连接自有 HTTPS 下载服务，自动识别架构、校验安装包并启动服务，无需 GitHub CLI 或 GitHub 账号。命令持有人可以下载安装包，请勿公开转发。下载服务器的管理员可用 `sudo cat /root/agh-private-install.txt` 取回命令。
 
 **通过私有 GitHub Release 安装（备选）。** 适用于使用 systemd 的 Linux amd64 / arm64。先安装 [GitHub CLI](https://cli.github.com/)，并用有私有仓库读取权限的账号执行一次 `gh auth login --hostname github.com`。然后复制下面这一行：
