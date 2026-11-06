@@ -4,26 +4,39 @@
 
 ## 在新 Linux 服务器上安装
 
-以下步骤适用于使用 systemd 的 Linux。仓库为私有仓库，目前通过源码构建安装。准备一台与目标服务器架构相同的 Linux 构建机，安装 Git、GitHub CLI、Node.js 24（含 npm）和 Go 1.27.3。可以直接在目标机上构建，也可以在另一台机器编译，然后只将生成的 `AdGuardHome` 文件传到目标机。
+适用于使用 systemd 的 Linux x86_64（amd64）和 ARM64（aarch64）。安装包包含中文管理界面，解压即可运行。已有实例请先下载并校验安装包，然后按下方「升级已有实例与回退」操作。
 
-**1. 获取并编译定制版。** 使用有仓库读取权限的 GitHub 账号登录。以下命令定位到与当前线上版本对应的源码提交。
+**1. 下载安装包。** 仓库为私有仓库。可以在浏览器登录 GitHub，从 [当前版本 Release](https://github.com/Avlonjune7/AdGuardHome-Operator/releases/tag/v0.107.80%2Boperator.5) 的 Assets 下载对应架构的 `.tar.gz` 和同名 `.sha256` 文件，再将两者传到服务器。也可以在装有 GitHub CLI 的服务器上运行：
 
 ```bash
-gh auth login
-gh auth setup-git
-gh repo clone Avlonjune7/AdGuardHome-Operator
-cd AdGuardHome-Operator
-git switch --detach b078fe8724f9fe1824b549e1b2df9c15e2672798
-(cd client && npm ci && npm run build-prod) &&
-  CGO_ENABLED=0 go build -trimpath \
-    -ldflags='-s -w -X github.com/AdguardTeam/AdGuardHome/internal/version.version=v0.107.80+operator.5 -X github.com/AdguardTeam/AdGuardHome/internal/version.channel=release' \
-    -o ./AdGuardHome .
-./AdGuardHome --version
+set -e
+case "$(uname -m)" in
+  x86_64) arch=amd64 ;;
+  aarch64|arm64) arch=arm64 ;;
+  *) echo "此版本没有适配当前架构的安装包"; exit 1 ;;
+esac
+pkg="AdGuardHome-linux-${arch}.tar.gz"
+mkdir -p "$HOME/adguard-operator.5"
+cd "$HOME/adguard-operator.5"
+gh auth status --hostname github.com || gh auth login --hostname github.com
+gh release download 'v0.107.80+operator.5' -R Avlonjune7/AdGuardHome-Operator \
+  -p "$pkg" -p "$pkg.sha256"
 ```
 
-**2. 安装为系统服务。** 在新服务器上，从含有编译产物的目录执行。已有实例请使用下方的升级步骤。
+**2. 校验并安装为系统服务。** 在两个下载文件所在目录执行。校验通过后才解压，运行时应显示 `v0.107.80+operator.5`。
 
 ```bash
+set -e
+case "$(uname -m)" in
+  x86_64) pkg=AdGuardHome-linux-amd64.tar.gz ;;
+  aarch64|arm64) pkg=AdGuardHome-linux-arm64.tar.gz ;;
+  *) echo "暂不支持当前架构"; exit 1 ;;
+esac
+sha256sum -c "$pkg.sha256"
+tar -xzf "$pkg"
+cd AdGuardHome
+./AdGuardHome --version
+# 仅用于首次安装；升级请从当前目录执行文末的升级步骤。
 sudo install -d /opt/AdGuardHome
 sudo install -m 0755 ./AdGuardHome /opt/AdGuardHome/AdGuardHome
 sudo /opt/AdGuardHome/AdGuardHome -s install
