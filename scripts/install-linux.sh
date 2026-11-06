@@ -17,13 +17,13 @@ as_root() {
 
 main() {
     repo=Avlonjune7/AdGuardHome-Operator
-    tag=v0.107.80%2Boperator.5
+    tag=v0.107.80%2Boperator.6
     dest=/opt/AdGuardHome
     [ "$(uname -s)" = Linux ] && [ -d /run/systemd/system ] ||
         fail '需要使用 systemd 的 Linux 服务器。'
     case "$(uname -m)" in
-        x86_64) arch=amd64; digest=5581e7600f66cd948e83e6514facd607091d5870d01d751be0143fab88524fd3 ;;
-        arm64|aarch64) arch=arm64; digest=b18c65625e66cf407e0162a03d923b3b81b35d7a2e7cdc7f250221c6d31be28c ;;
+        x86_64) arch=amd64; digest=b2b1e163f26cc03ccf31263e01ed9304ecf0e770cfb3a6740eef4f4058d6e5c5 ;;
+        arm64|aarch64) arch=arm64; digest=03d3876b7b6c54316615d4db49b7dd8e57aa704ac2e6a56bb237a989a49db60f ;;
         *) fail '支持的架构为 amd64 和 arm64。' ;;
     esac
     for tool in curl sha256sum tar systemctl mktemp install; do
