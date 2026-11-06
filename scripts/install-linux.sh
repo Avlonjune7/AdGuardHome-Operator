@@ -26,7 +26,7 @@ main() {
         arm64|aarch64) arch=arm64; digest=b18c65625e66cf407e0162a03d923b3b81b35d7a2e7cdc7f250221c6d31be28c ;;
         *) fail '支持的架构为 amd64 和 arm64。' ;;
     esac
-    for tool in sha256sum tar systemctl mktemp install; do
+    for tool in curl sha256sum tar systemctl mktemp install; do
         command -v "$tool" >/dev/null || fail "缺少命令：$tool"
     done
     if [ "$(id -u)" != 0 ]; then
@@ -41,12 +41,8 @@ main() {
     trap 'rm -rf -- "$tmp"' EXIT
     trap 'exit 1' HUP INT TERM
     pkg="AdGuardHome-linux-$arch.tar.gz"
-    if [ "$#" -eq 1 ]; then
-        cp -- "$1/$pkg" "$tmp/"
-    else
-        base="https://github.com/$repo/releases/download/$tag"
-        curl -fsSL --retry 2 --proto '=https' --proto-redir '=https' "$base/$pkg" -o "$tmp/$pkg"
-    fi
+    base="https://github.com/$repo/releases/download/$tag"
+    curl -fsSL --retry 2 --proto '=https' --proto-redir '=https' "$base/$pkg" -o "$tmp/$pkg"
     (
         cd "$tmp"
         printf '%s  %s\n' "$digest" "$pkg" | sha256sum -c -
@@ -60,4 +56,4 @@ main() {
     printf '%s\n' '安装成功。请访问 http://服务器IP:3000 完成首次设置。'
 }
 
-main "$@"
+main

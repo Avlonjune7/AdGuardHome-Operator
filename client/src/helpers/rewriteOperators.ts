@@ -1,8 +1,9 @@
-export const operatorLabel = (operator?: string): string => {
-    switch (operator) {
-        case 'cmcc': return '中国移动';
-        case 'unicom': return '中国联通';
-        case 'chinanet': return '中国电信';
-        default: return '默认';
-    }
-};
+export const rewriteOperators = [
+    { value: '', label: '默认' },
+    { value: 'cmcc', label: '中国移动' },
+    { value: 'unicom', label: '中国联通' },
+    { value: 'chinanet', label: '中国电信' },
+] as const;
+
+export const operatorLabel = (operator?: string): string =>
+    rewriteOperators.find(({ value }) => value === operator)?.label ?? rewriteOperators[0].label;

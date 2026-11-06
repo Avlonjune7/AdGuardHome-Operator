@@ -2,6 +2,7 @@ import React from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { Trans, useTranslation } from 'react-i18next';
 
+import { rewriteOperators } from '../../../helpers/rewriteOperators';
 import { validateAnswer, validateDomain, validateRequiredValue } from '../../../helpers/validators';
 import { Input } from '../../ui/Controls/Input';
 
@@ -53,10 +54,9 @@ const Form = ({ processingAdd, currentRewrite, toggleRewritesModal, onSubmit }: 
                         control={control}
                         render={({ field }) => (
                             <select {...field} id="rewrite-operator" className="form-control custom-select">
-                                <option value="">默认</option>
-                                <option value="cmcc">中国移动</option>
-                                <option value="unicom">中国联通</option>
-                                <option value="chinanet">中国电信</option>
+                                {rewriteOperators.map(({ value, label }) => (
+                                    <option key={value} value={value}>{label}</option>
+                                ))}
                             </select>
                         )}
                     />
