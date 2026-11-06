@@ -51,7 +51,7 @@ main() {
     )
     as_root mkdir -- "$dest"
     as_root install -m 0755 "$tmp/AdGuardHome/AdGuardHome" "$dest/AdGuardHome"
-    as_root "$dest/AdGuardHome" -s install
+    as_root "$dest/AdGuardHome" -s install --no-check-update
     systemctl is-active --quiet AdGuardHome.service || fail '请用 journalctl -u AdGuardHome 查看启动日志。'
     printf '%s\n' '安装成功。请访问 http://服务器IP:3000 完成首次设置。'
 }
