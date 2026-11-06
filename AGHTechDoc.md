@@ -2042,3 +2042,42 @@ Run-time: AGH adds IP addresses of a domain name to a corresponding ipset list.
 	1. AGH --( resolve host.com )-> upstream
 	2. AGH <-( host.com:[1.1.1.1,2.2.2.2] )-- upstream
 	3. AGH --( ipset.add(my_ipset, [1.1.1.1,2.2.2.2] ))-> OS
+
+## Operator-specific DNS rewrites
+
+The optional `operator` field selects the DNS query source network:
+`cmcc` (China Mobile), `unicom` (China Unicom), `chinanet` (China Telecom),
+or an empty string (default). Existing YAML and API rules without this field
+remain default rules. Add, update, delete, and list APIs include the field;
+rule identity is domain + answer + operator. External controllers must retain
+this field and scope their reconciliation by operator before managing these
+rules. Older domain-wide failover controllers are not line-aware.
+
+For each matching domain pattern and query type, an enabled operator rule
+replaces the default answers. Missing, disabled, unknown, or ambiguous
+operator matches fall back to default answers. Existing exact/wildcard and
+CNAME precedence is preserved, including operator selection through CNAME
+chains. IPv4 and IPv6 answers are selected independently. Without a matching
+rewrite, normal filtering and upstream resolution continue.
+
+Classification uses the client address already supplied to the DNS filtering
+pipeline. User-Agent and untrusted ECS claims are not used. Proxies or other
+DNS forwarders may hide the original user's network. Rewritten answers are
+created before upstream cache resolution; no shared operator-answer cache is
+introduced. Downstream recursive caches can still hide or combine users.
+
+The data source is [china-operator-ip][operator-ip-source] (MIT license),
+using the GitHub Pages `cmcc46.txt`, `unicom46.txt`, and `chinanet46.txt` lists.
+The first enabled operator rule triggers a background download. While such
+rules exist, the service checks hourly and refreshes snapshots older than
+24 hours. Failed downloads are retried on a later check; all three lists
+must validate before the saved `data/operators.json` snapshot is replaced.
+A previously valid snapshot remains usable offline and after restart.
+Overlapping operator prefixes are treated as ambiguous and use the default.
+
+`GET /control/rewrite/settings` includes read-only `operator_db` status:
+`ready`, `updated`, and an optional last `error`. The management page shows
+readiness and the last successful update. The first download may take time;
+until it succeeds, only default rules apply.
+
+[operator-ip-source]: https://github.com/gaoyifan/china-operator-ip

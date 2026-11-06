@@ -25,9 +25,16 @@ interface RewritesProps {
 }
 
 class Rewrites extends Component<RewritesProps> {
+    refreshTimer?: ReturnType<typeof setInterval>;
+
     componentDidMount() {
         this.props.getRewritesList();
         this.props.getRewriteSettings();
+        this.refreshTimer = setInterval(() => this.props.getRewriteSettings(), 30000);
+    }
+
+    componentWillUnmount() {
+        clearInterval(this.refreshTimer);
     }
 
     handleDelete = (values: any) => {
@@ -85,6 +92,13 @@ class Rewrites extends Component<RewritesProps> {
         } = rewrites;
 
         const isEnabledSettings = settings.enabled;
+        let databaseStatus = '启用运营商规则后自动下载 IP 库；下载完成前使用默认线路。';
+        if (settings.operator_db?.ready) {
+            databaseStatus = `运营商库更新时间：${new Date(settings.operator_db.updated).toLocaleString('zh-CN')}。每日自动更新。`;
+        }
+        if (settings.operator_db?.error) {
+            databaseStatus = '运营商库更新失败，继续使用上次有效数据；尚无数据时使用默认线路。';
+        }
 
         return (
             <Fragment>
@@ -93,6 +107,10 @@ class Rewrites extends Component<RewritesProps> {
                 <div className={cn(isEnabledSettings ? 'text-success' : 'text-warning', 'mb-2')}>
                     {isEnabledSettings ? t('rewrites_enabled_table_header') : t('rewrites_disabled_table_header')}
                 </div>
+
+                <p role="status" className="mb-3">
+                    {databaseStatus}
+                </p>
 
                 <Card id="rewrites" bodyType="card-body box-body--settings">
                     <Fragment>

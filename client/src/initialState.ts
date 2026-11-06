@@ -173,14 +173,17 @@ export type RewritesData = {
     currentRewrite?: {
         answer: string;
         domain: string;
+        operator?: string;
         enabled: boolean;
     };
     list: {
         answer: string;
         domain: string;
+        operator?: string;
         enabled: boolean;
     }[];
     settings: {
+        operator_db?: { ready: boolean; updated: string; error?: string };
         enabled: boolean;
     };
 };

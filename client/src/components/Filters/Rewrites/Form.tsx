@@ -8,6 +8,8 @@ import { Input } from '../../ui/Controls/Input';
 interface RewriteFormValues {
     domain: string;
     answer: string;
+    operator?: string;
+    enabled?: boolean;
 }
 
 type Props = {
@@ -30,6 +32,8 @@ const Form = ({ processingAdd, currentRewrite, toggleRewritesModal, onSubmit }: 
         defaultValues: {
             domain: currentRewrite?.domain || '',
             answer: currentRewrite?.answer || '',
+            operator: currentRewrite?.operator || '',
+            enabled: currentRewrite?.enabled ?? true,
         },
     });
 
@@ -42,6 +46,24 @@ const Form = ({ processingAdd, currentRewrite, toggleRewritesModal, onSubmit }: 
     return (
         <form onSubmit={handleSubmit(handleFormSubmit)}>
             <div className="modal-body">
+                <div className="form__group">
+                    <label htmlFor="rewrite-operator">客户端线路</label>
+                    <Controller
+                        name="operator"
+                        control={control}
+                        render={({ field }) => (
+                            <select {...field} id="rewrite-operator" className="form-control custom-select">
+                                <option value="">默认</option>
+                                <option value="cmcc">中国移动</option>
+                                <option value="unicom">中国联通</option>
+                                <option value="chinanet">中国电信</option>
+                            </select>
+                        )}
+                    />
+                    <small className="form-text text-muted">
+                        按 DNS 请求来源 IP 匹配；未匹配到运营商线路时使用默认记录。代理或公共 DNS 可能隐藏真实来源。
+                    </small>
+                </div>
                 <div className="form__desc form__desc--top">
                     <Trans>domain_desc</Trans>
                 </div>

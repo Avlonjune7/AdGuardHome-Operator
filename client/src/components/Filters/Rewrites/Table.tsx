@@ -4,6 +4,7 @@ import React, { Component } from 'react';
 import ReactTable from 'react-table';
 import { withTranslation } from 'react-i18next';
 
+import { operatorLabel } from '../../../helpers/rewriteOperators';
 import { sortIp } from '../../../helpers/helpers';
 import { MODAL_TYPE, TABLES_MIN_ROWS } from '../../../helpers/constants';
 import { LocalStorageHelper, LOCAL_STORAGE_KEYS } from '../../../helpers/localStorageHelper';
@@ -15,7 +16,7 @@ interface TableProps {
     processingAdd: boolean;
     processingDelete: boolean;
     processingUpdate: boolean;
-    settings: Record<string, boolean>;
+    settings: { enabled: boolean };
     handleDelete: (...args: unknown[]) => unknown;
     toggleRewritesModal: (...args: unknown[]) => unknown;
     toggleRewrite: (...args: unknown[]) => unknown;
@@ -30,6 +31,15 @@ class Table extends Component<TableProps> {
         </div>
     );
 
+    renderDomain = ({ original }: any) => (
+        <div className="logs__row o-hidden">
+            <div>
+                <div className="logs__text" title={original.domain}>{original.domain}</div>
+                <small className="text-muted">{operatorLabel(original.operator)}</small>
+            </div>
+        </div>
+    );
+
     renderCheckbox = ({ original }: any) => {
         const { processing, settings, toggleRewrite } = this.props;
         const isEnabledSettings = Boolean(settings && settings.enabled);
@@ -37,6 +47,7 @@ class Table extends Component<TableProps> {
         return (
             <label className="checkbox">
                 <input
+                    aria-label={`切换 ${original.domain}（${operatorLabel(original.operator)}）`}
                     data-testid="rewrite-enabled"
                     type="checkbox"
                     className="checkbox__input"
@@ -62,11 +73,13 @@ class Table extends Component<TableProps> {
         {
             Header: this.props.t('domain'),
             accessor: 'domain',
-            Cell: this.cellWrap,
+            minWidth: 220,
+            Cell: this.renderDomain,
         },
         {
             Header: this.props.t('answer'),
             accessor: 'answer',
+            minWidth: 150,
             sortMethod: sortIp,
             Cell: this.cellWrap,
         },

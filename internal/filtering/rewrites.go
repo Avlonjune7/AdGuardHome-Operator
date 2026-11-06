@@ -25,6 +25,9 @@ type LegacyRewrite struct {
 	// Domain is the pattern to which this rewrite applies.
 	Domain string `yaml:"domain"`
 
+	// Operator selects a client network; empty preserves legacy behavior.
+	Operator Operator `yaml:"operator,omitempty"`
+
 	// Answer is the IP address, canonical name, or one of the special
 	// values: "A" or "AAAA".
 	Answer string `yaml:"answer"`
@@ -42,7 +45,7 @@ type LegacyRewrite struct {
 
 // equal returns true if the rw is equal to the other.
 func (rw *LegacyRewrite) equal(other *LegacyRewrite) (ok bool) {
-	return rw.Domain == other.Domain && rw.Answer == other.Answer
+	return rw.Domain == other.Domain && rw.Answer == other.Answer && rw.Operator == other.Operator
 }
 
 // matchesQType returns true if the entry matches the question type qt.
@@ -69,6 +72,10 @@ func (rw *LegacyRewrite) matchesQType(qt uint16) (ok bool) {
 func (rw *LegacyRewrite) normalize(ctx context.Context, l *slog.Logger) (err error) {
 	if rw == nil {
 		return errors.Error("nil rewrite entry")
+	}
+
+	if !rw.Operator.valid() {
+		return fmt.Errorf("invalid rewrite operator %q", rw.Operator)
 	}
 
 	// TODO(a.garipov): Write a case-agnostic version of strings.HasSuffix and
@@ -245,11 +252,12 @@ func cloneRewrites(entries []*LegacyRewrite) (clone []*LegacyRewrite) {
 	clone = make([]*LegacyRewrite, len(entries))
 	for i, rw := range entries {
 		clone[i] = &LegacyRewrite{
-			Domain:  rw.Domain,
-			Answer:  rw.Answer,
-			IP:      rw.IP,
-			Type:    rw.Type,
-			Enabled: rw.Enabled,
+			Domain:   rw.Domain,
+			Operator: rw.Operator,
+			Answer:   rw.Answer,
+			IP:       rw.IP,
+			Type:     rw.Type,
+			Enabled:  rw.Enabled,
 		}
 	}
 

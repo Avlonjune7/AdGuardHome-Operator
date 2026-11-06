@@ -215,7 +215,7 @@ export const DEFAULT_LOGS_FILTER = {
     response_status: 'all',
 };
 
-export const DEFAULT_LANGUAGE = 'en';
+export const DEFAULT_LANGUAGE = 'zh-cn';
 
 export const QUERY_LOGS_PAGE_LIMIT = 20;
 

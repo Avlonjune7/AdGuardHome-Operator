@@ -3123,6 +3123,11 @@
       'type': 'object'
       'description': 'Rewrite rule'
       'properties':
+        'operator':
+          'type': 'string'
+          'enum': ['', 'cmcc', 'unicom', 'chinanet']
+          'default': ''
+          'description': 'Client source-IP operator. Empty or omitted selects the default line.'
         'domain':
           'type': 'string'
           'description': 'Domain name'
@@ -3144,6 +3149,17 @@
       'required':
       - 'enabled'
       'properties':
+        'operator_db':
+          'type': 'object'
+          'readOnly': true
+          'properties':
+            'ready':
+              'type': 'boolean'
+            'updated':
+              'type': 'string'
+              'format': 'date-time'
+            'error':
+              'type': 'string'
         'enabled':
           'type': 'boolean'
           'description': 'indicates whether rewrites are applied'

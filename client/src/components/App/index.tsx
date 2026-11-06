@@ -138,8 +138,8 @@ const App = () => {
             return;
         }
 
-        i18n.changeLanguage(language);
-        setHtmlLangAttr(language);
+        i18n.changeLanguage('zh-cn');
+        setHtmlLangAttr('zh-cn');
     };
 
     useEffect(() => {

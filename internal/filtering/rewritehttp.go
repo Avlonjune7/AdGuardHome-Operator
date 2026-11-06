@@ -13,13 +13,15 @@ import (
 //
 // TODO(d.kolyshev): Use [rewrite.Item] instead.
 type rewriteEntryJSON struct {
-	Domain  string          `json:"domain"`
-	Answer  string          `json:"answer"`
-	Enabled aghalg.NullBool `json:"enabled"`
+	Operator Operator        `json:"operator,omitempty"`
+	Domain   string          `json:"domain"`
+	Answer   string          `json:"answer"`
+	Enabled  aghalg.NullBool `json:"enabled"`
 }
 
 // rewriteSettings contains DNS rewrite settings.
 type rewriteSettings struct {
+	OperatorDB *operatorDBStatus `json:"operator_db,omitempty"`
 	// Enabled indicates whether legacy rewrites are applied.
 	//
 	// TODO(s.chzhen):  Consider using [aghalg.NullBool] so "{}" won't
@@ -37,9 +39,10 @@ func (d *DNSFilter) handleRewriteList(w http.ResponseWriter, r *http.Request) {
 
 		for _, ent := range d.conf.Rewrites {
 			jsonEnt := rewriteEntryJSON{
-				Domain:  ent.Domain,
-				Answer:  ent.Answer,
-				Enabled: aghalg.BoolToNullBool(ent.Enabled),
+				Domain:   ent.Domain,
+				Operator: ent.Operator,
+				Answer:   ent.Answer,
+				Enabled:  aghalg.BoolToNullBool(ent.Enabled),
 			}
 			arr = append(arr, &jsonEnt)
 		}
@@ -67,9 +70,10 @@ func (d *DNSFilter) handleRewriteAdd(w http.ResponseWriter, r *http.Request) {
 	}
 
 	rw := &LegacyRewrite{
-		Domain:  rwJSON.Domain,
-		Answer:  rwJSON.Answer,
-		Enabled: enabled,
+		Domain:   rwJSON.Domain,
+		Operator: rwJSON.Operator,
+		Answer:   rwJSON.Answer,
+		Enabled:  enabled,
 	}
 
 	err = rw.normalize(ctx, l)
@@ -94,6 +98,7 @@ func (d *DNSFilter) handleRewriteAdd(w http.ResponseWriter, r *http.Request) {
 	}()
 
 	d.conf.ConfModifier.Apply(ctx)
+	d.wakeOperatorDB()
 }
 
 // handleRewriteDelete is the handler for the POST /control/rewrite/delete HTTP
@@ -111,8 +116,9 @@ func (d *DNSFilter) handleRewriteDelete(w http.ResponseWriter, r *http.Request) 
 	}
 
 	entDel := &LegacyRewrite{
-		Domain: jsent.Domain,
-		Answer: jsent.Answer,
+		Domain:   jsent.Domain,
+		Operator: jsent.Operator,
+		Answer:   jsent.Answer,
 	}
 	arr := []*LegacyRewrite{}
 
@@ -160,13 +166,15 @@ func (d *DNSFilter) handleRewriteUpdate(w http.ResponseWriter, r *http.Request) 
 	}
 
 	rwDel := &LegacyRewrite{
-		Domain: updateJSON.Target.Domain,
-		Answer: updateJSON.Target.Answer,
+		Domain:   updateJSON.Target.Domain,
+		Operator: updateJSON.Target.Operator,
+		Answer:   updateJSON.Target.Answer,
 	}
 
 	rwAdd := &LegacyRewrite{
-		Domain: updateJSON.Update.Domain,
-		Answer: updateJSON.Update.Answer,
+		Domain:   updateJSON.Update.Domain,
+		Operator: updateJSON.Update.Operator,
+		Answer:   updateJSON.Update.Answer,
 	}
 
 	err = rwAdd.normalize(ctx, l)
@@ -176,6 +184,7 @@ func (d *DNSFilter) handleRewriteUpdate(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	defer d.wakeOperatorDB()
 	index := -1
 	defer func() {
 		if index >= 0 {
@@ -221,8 +230,10 @@ func (d *DNSFilter) handleRewriteUpdate(w http.ResponseWriter, r *http.Request) 
 // handleRewriteSettings is the handler for the GET /control/rewrite/settings
 // HTTP API.
 func (d *DNSFilter) handleRewriteSettings(w http.ResponseWriter, r *http.Request) {
+	status := d.operators.status()
 	resp := &rewriteSettings{
-		Enabled: protectedBool(d.confMu, &d.conf.RewritesEnabled),
+		OperatorDB: &status,
+		Enabled:    protectedBool(d.confMu, &d.conf.RewritesEnabled),
 	}
 
 	aghhttp.WriteJSONResponseOK(r.Context(), d.logger, w, r, resp)
@@ -243,4 +254,5 @@ func (d *DNSFilter) handleRewriteSettingsUpdate(w http.ResponseWriter, r *http.R
 
 	setProtectedBool(d.confMu, &d.conf.RewritesEnabled, req.Enabled)
 	d.conf.ConfModifier.Apply(ctx)
+	d.wakeOperatorDB()
 }

@@ -4,16 +4,14 @@ import { useDispatch, useSelector } from 'react-redux';
 import cn from 'classnames';
 
 import { REPOSITORY, PRIVACY_POLICY_LINK, THEMES } from '../../helpers/constants';
-import { LANGUAGES } from '../../helpers/twosky';
-import i18n from '../../i18n';
 
 import Version from './Version';
 import './Footer.css';
 import './Select.css';
 
-import { setHtmlLangAttr, setUITheme } from '../../helpers/helpers';
+import { setUITheme } from '../../helpers/helpers';
 
-import { changeLanguage, changeTheme } from '../../actions';
+import { changeTheme } from '../../actions';
 import { RootState } from '../../initialState';
 
 const linksData = [
@@ -46,14 +44,6 @@ const Footer = () => {
         return today.getFullYear();
     };
 
-    const onLanguageChange = (language: string) => {
-        i18n.changeLanguage(language);
-        setHtmlLangAttr(language);
-
-        if (isLoggedIn) {
-            dispatch(changeLanguage(language));
-        }
-    };
 
     const onThemeChange = (value: any) => {
         if (isLoggedIn) {
@@ -142,18 +132,7 @@ const Footer = () => {
                             </div>
                         </div>
 
-                        <div className="footer__column footer__column--language">
-                            <select
-                                className="form-control select select--language"
-                                value={i18n.language}
-                                onChange={(e) => onLanguageChange(e.target.value)}>
-                                {Object.keys(LANGUAGES).map((lang) => (
-                                    <option key={lang} value={lang}>
-                                        {LANGUAGES[lang]}
-                                    </option>
-                                ))}
-                            </select>
-                        </div>
+
                     </div>
                 </div>
             </footer>

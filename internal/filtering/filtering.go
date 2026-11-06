@@ -253,6 +253,8 @@ type Checker interface {
 
 // DNSFilter matches hostnames and DNS requests against filtering rules.
 type DNSFilter struct {
+	operators *operatorDB
+
 	// logger is used for logging the filtering process.
 	logger *slog.Logger
 
@@ -394,6 +396,10 @@ func (d *DNSFilter) setFilters(
 
 // Close - close the object
 func (d *DNSFilter) Close() {
+	if d.operators != nil && d.operators.cancel != nil {
+		d.operators.cancel()
+		<-d.operators.done
+	}
 	d.engineLock.Lock()
 	defer d.engineLock.Unlock()
 
@@ -518,7 +524,7 @@ func (d *DNSFilter) CheckHost(
 	host = strings.ToLower(host)
 
 	if setts.FilteringEnabled {
-		res = d.processRewrites(host, qtype)
+		res = d.processRewrites(host, qtype, setts.ClientIP)
 		if res.Reason == Rewritten {
 			return res, nil
 		}
@@ -547,7 +553,7 @@ func (d *DNSFilter) CheckHost(
 // Secondly, it finds A or AAAA rewrites for host and, if found, sets res.IPList
 // accordingly.  If the found rewrite has a special value of "A" or "AAAA", the
 // result is an exception.
-func (d *DNSFilter) processRewrites(host string, qtype uint16) (res Result) {
+func (d *DNSFilter) processRewrites(host string, qtype uint16, clientIP ...netip.Addr) (res Result) {
 	d.confMu.RLock()
 	defer d.confMu.RUnlock()
 
@@ -557,14 +563,18 @@ func (d *DNSFilter) processRewrites(host string, qtype uint16) (res Result) {
 		return Result{}
 	}
 
-	rewrites, matched := findRewrites(d.conf.Rewrites, host, qtype)
+	var operator Operator
+	if d.operators != nil && len(clientIP) > 0 {
+		operator = d.operators.snapshot.Load().lookup(clientIP[0])
+	}
+	rewrites, matched := findOperatorRewrites(d.conf.Rewrites, host, qtype, operator)
 	if !matched {
 		return Result{}
 	}
 
 	res.Reason = Rewritten
 
-	return d.handleRewriteLoop(ctx, host, qtype, rewrites, matched, &res)
+	return d.handleRewriteLoop(ctx, host, qtype, rewrites, matched, &res, operator)
 }
 
 // handleRewriteLoop performs filtering rewrite processing based on the legacy
@@ -576,6 +586,7 @@ func (d *DNSFilter) handleRewriteLoop(
 	rewrites []*LegacyRewrite,
 	matched bool,
 	res *Result,
+	operator Operator,
 ) (resResult Result) {
 	cnames := container.NewMapSet[string]()
 	origHost := host
@@ -611,7 +622,7 @@ func (d *DNSFilter) handleRewriteLoop(
 
 		cnames.Add(host)
 		res.CanonName = host
-		rewrites, matched = findRewrites(d.conf.Rewrites, host, qtype)
+		rewrites, matched = findOperatorRewrites(d.conf.Rewrites, host, qtype, operator)
 	}
 
 	d.setRewriteResult(ctx, res, host, rewrites, qtype)
@@ -1016,6 +1027,7 @@ func New(c *Config, blockFilters []Filter) (d *DNSFilter, err error) {
 	defer func() { err = errors.Annotate(err, "filtering: %w") }()
 
 	d.conf = c
+	d.operators = newOperatorDB(c.DataDir, c.HTTPClient)
 	d.conf.filtersMu = &sync.RWMutex{}
 
 	err = d.prepareRewrites(ctx)
@@ -1077,6 +1089,7 @@ func (d *DNSFilter) validateSafeFSPatterns(patterns []string) (err error) {
 
 // Start registers web handlers and starts filters updates loop.
 func (d *DNSFilter) Start() {
+	d.startOperatorDB()
 	d.filtersInitializerChan = make(chan filtersInitializerParams, 1)
 	d.done = make(chan struct{}, 1)
 

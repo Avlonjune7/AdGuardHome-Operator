@@ -427,8 +427,7 @@ func TestDNSFilter_HandleRewriteSettings(t *testing.T) {
 	)
 
 	var (
-		wantEnabled  = fmt.Sprintf("{%q:%s}", enabled, "true")
-		wantDisabled = fmt.Sprintf("{%q:%s}", enabled, "false")
+		wantEnabled = fmt.Sprintf("{%q:%s}", enabled, "true")
 	)
 
 	confUpdated := false
@@ -464,7 +463,7 @@ func TestDNSFilter_HandleRewriteSettings(t *testing.T) {
 		handlers[path].ServeHTTP(w, r)
 		require.Equal(t, http.StatusOK, w.Code)
 
-		assert.JSONEq(t, wantDisabled, w.Body.String())
+		assert.JSONEq(t, `{"enabled":false,"operator_db":{"ready":false,"updated":"0001-01-01T00:00:00Z"}}`, w.Body.String())
 	}))
 
 	require.True(t, t.Run("update", func(t *testing.T) {
@@ -479,6 +478,6 @@ func TestDNSFilter_HandleRewriteSettings(t *testing.T) {
 		require.Equal(t, http.StatusOK, w.Code)
 
 		assert.True(t, confUpdated)
-		assert.JSONEq(t, wantEnabled, w.Body.String())
+		assert.JSONEq(t, `{"enabled":true,"operator_db":{"ready":false,"updated":"0001-01-01T00:00:00Z"}}`, w.Body.String())
 	}))
 }

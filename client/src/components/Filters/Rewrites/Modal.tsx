@@ -14,7 +14,7 @@ interface ModalProps {
     processingAdd: boolean;
     processingDelete: boolean;
     modalType: string;
-    currentRewrite?: { answer: string, domain: string; };
+    currentRewrite?: { answer: string; domain: string; operator?: string; enabled?: boolean; };
 }
 
 const Modal = (props: ModalProps) => {
@@ -44,7 +44,7 @@ const Modal = (props: ModalProps) => {
                     </h4>
 
                     <button type="button" className="close" onClick={() => toggleRewritesModal()}>
-                        <span className="sr-only">Close</span>
+                        <span className="sr-only">关闭</span>
                     </button>
                 </div>
 
