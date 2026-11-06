@@ -4,7 +4,9 @@
 
 ## 在新 Linux 服务器上安装
 
-**新机一键安装。** 适用于使用 systemd 的 Linux amd64 / arm64。先安装 [GitHub CLI](https://cli.github.com/)，并用有私有仓库读取权限的账号执行一次 `gh auth login --hostname github.com`。然后复制下面这一行：
+**个人服务器一键安装（curl）。** 从部署者保管的私密命令文件复制整行，在新 Linux 服务器执行。命令使用专用下载密钥连接自有 HTTPS 下载服务，自动识别架构、校验安装包并启动服务，无需 GitHub CLI 或 GitHub 账号。命令持有人可以下载安装包，请勿公开转发。下载服务器的管理员可用 `sudo cat /root/agh-private-install.txt` 取回命令。
+
+**通过私有 GitHub Release 安装（备选）。** 适用于使用 systemd 的 Linux amd64 / arm64。先安装 [GitHub CLI](https://cli.github.com/)，并用有私有仓库读取权限的账号执行一次 `gh auth login --hostname github.com`。然后复制下面这一行：
 
 ```bash
 ( f=$(mktemp) && trap 'rm -f "$f"' EXIT && gh release download 'v0.107.80+operator.5' -R Avlonjune7/AdGuardHome-Operator -p install-linux.sh -O - > "$f" && sh "$f" )
