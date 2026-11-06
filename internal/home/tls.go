@@ -326,10 +326,11 @@ func (m *tlsManager) reload(ctx context.Context) {
 	m.extTLSConf = &extTLSConf
 	m.certLastMod = fi.ModTime().UTC()
 
-	// The background context is used because the TLSConfigChanged wraps context
-	// with timeout on its own and shuts down the server, which handles current
-	// request.
-	m.web.tlsConfigChanged(context.Background(), m.extTLSConf)
+	// File renewal changes only the certificate. Keep HTTPS and HTTP/3
+	// listeners open so in-flight DoH requests continue using their connection.
+	if m.tlsCert != nil {
+		m.web.httpsServer.replaceCertificate(*m.tlsCert)
+	}
 }
 
 // loadTLSConfig loads and validates the TLS configuration.  It also sets

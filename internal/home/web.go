@@ -180,6 +180,20 @@ func (srv *httpsServer) certificate() (cert tls.Certificate) {
 	return srv.cert
 }
 
+// getCertificate selects the current certificate at handshake time, including
+// for IP clients that omit SNI.
+func (srv *httpsServer) getCertificate(_ *tls.ClientHelloInfo) (*tls.Certificate, error) {
+	cert := srv.certificate()
+	return &cert, nil
+}
+
+// replaceCertificate updates future handshakes without reopening listeners.
+func (srv *httpsServer) replaceCertificate(cert tls.Certificate) {
+	srv.mu.Lock()
+	defer srv.mu.Unlock()
+	srv.cert = cert
+}
+
 // waitForTLSReady blocks until the server is enabled or a shutdown signal is
 // received.  Returns true when server is ready.  Must be run with one goroutine
 // only.
@@ -475,10 +489,10 @@ func (web *webAPI) serveTLS(ctx context.Context) (next bool) {
 		// TODO(m.kazantsev):  Do not create TLS config manually, but use
 		// [aghtls.TLSConfigProvider].
 		TLSConfig: &tls.Config{
-			Certificates: []tls.Certificate{web.httpsServer.certificate()},
-			RootCAs:      web.tlsManager.rootCerts,
-			CipherSuites: web.tlsManager.customCipherIDs,
-			MinVersion:   tls.VersionTLS12,
+			GetCertificate: web.httpsServer.getCertificate,
+			RootCAs:        web.tlsManager.rootCerts,
+			CipherSuites:   web.tlsManager.customCipherIDs,
+			MinVersion:     tls.VersionTLS12,
 		},
 		ReadTimeout:       web.conf.ReadTimeout,
 		ReadHeaderTimeout: web.conf.ReadHeaderTimeout,
@@ -517,10 +531,10 @@ func (web *webAPI) mustStartHTTP3(ctx context.Context, address string) {
 		// TODO(m.kazantsev):  Do not create TLS config manually, but use
 		// [aghtls.TLSConfigProvider].
 		TLSConfig: &tls.Config{
-			Certificates: []tls.Certificate{web.httpsServer.certificate()},
-			RootCAs:      web.tlsManager.rootCerts,
-			CipherSuites: web.tlsManager.customCipherIDs,
-			MinVersion:   tls.VersionTLS12,
+			GetCertificate: web.httpsServer.getCertificate,
+			RootCAs:        web.tlsManager.rootCerts,
+			CipherSuites:   web.tlsManager.customCipherIDs,
+			MinVersion:     tls.VersionTLS12,
 		},
 		Handler: hdlr,
 	}

@@ -411,7 +411,7 @@ func (mw *authMiddlewareDefault) Wrap(h http.Handler) (wrapped http.Handler) {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := r.Context()
 
-		if !mw.needsAuthentication(ctx) {
+		if isACMEChallenge(r) || !mw.needsAuthentication(ctx) {
 			h.ServeHTTP(w, r)
 
 			return

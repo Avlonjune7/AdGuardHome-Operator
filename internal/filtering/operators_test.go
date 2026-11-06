@@ -7,7 +7,9 @@ import (
 	"net/http/httptest"
 	"net/netip"
 	"strings"
+	"sync/atomic"
 	"testing"
+	"time"
 
 	"github.com/AdguardTeam/AdGuardHome/internal/aghtest"
 	"github.com/miekg/dns"
@@ -128,4 +130,35 @@ func TestOperatorRewriteHTTPIsolation(t *testing.T) {
 	for _, r := range d.conf.Rewrites {
 		require.NotEqual(t, operatorUnicom, r.Operator)
 	}
+}
+
+func TestOperatorUpdateHistory(t *testing.T) {
+	dir := t.TempDir()
+	var fail atomic.Bool
+	client := &http.Client{Transport: operatorTransport(func(r *http.Request) (*http.Response, error) {
+		status := 200
+		if fail.Load() {
+			status = 503
+		}
+		return &http.Response{StatusCode: status, Body: io.NopCloser(strings.NewReader("192.0.2.0/24"))}, nil
+	})}
+	d, _ := newForTest(t, &Config{DataDir: dir, HTTPClient: client, Rewrites: []*LegacyRewrite{{Domain: "example.org", Answer: "192.0.2.10", Operator: operatorMobile, Enabled: true}}}, nil)
+	d.startOperatorDB()
+	defer d.Close()
+	status := d.operators.status
+	require.Eventually(t, func() bool { return len(status().History) == 1 }, 3*time.Second, time.Millisecond)
+	require.False(t, status().History[0].Manual)
+	require.Empty(t, status().History[0].Error)
+	old := d.operators.snapshot.Load()
+	w := httptest.NewRecorder()
+	d.handleOperatorInterval(w, httptest.NewRequest("POST", "/", strings.NewReader(`{"interval_hours":12}`)))
+	require.Equal(t, 204, w.Code)
+	fail.Store(true)
+	d.handleOperatorRefresh(httptest.NewRecorder(), httptest.NewRequest("POST", "/", nil))
+	require.Eventually(t, func() bool { return len(status().History) == 2 }, 3*time.Second, time.Millisecond)
+	saved := newOperatorDB(dir, client).status()
+	require.Equal(t, 12, saved.Hours)
+	require.True(t, saved.History[0].Manual)
+	require.Contains(t, saved.History[0].Error, "503")
+	require.Same(t, old, d.operators.snapshot.Load())
 }

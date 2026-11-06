@@ -183,7 +183,7 @@ export type RewritesData = {
         enabled: boolean;
     }[];
     settings: {
-        operator_db?: { ready: boolean; updated: string; error?: string };
+        operator_db?: { ready: boolean; updated: string; error?: string; interval_hours?: number; running?: boolean; history?: { at: string; manual: boolean; error?: string }[] };
         enabled: boolean;
     };
 };

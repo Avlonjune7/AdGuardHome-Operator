@@ -734,6 +734,8 @@ func (d *DNSFilter) RegisterFilteringHandlers() {
 	registerHTTP(http.MethodPut, "/control/safesearch/settings", d.handleSafeSearchSettings)
 
 	registerHTTP(http.MethodGet, "/control/rewrite/list", d.handleRewriteList)
+	registerHTTP(http.MethodPost, "/control/rewrite/operator/interval", d.handleOperatorInterval)
+	registerHTTP(http.MethodPost, "/control/rewrite/operator/refresh", d.handleOperatorRefresh)
 	registerHTTP(http.MethodGet, "/control/rewrite/settings", d.handleRewriteSettings)
 	registerHTTP(http.MethodPost, "/control/rewrite/add", d.handleRewriteAdd)
 	registerHTTP(http.MethodPost, "/control/rewrite/delete", d.handleRewriteDelete)

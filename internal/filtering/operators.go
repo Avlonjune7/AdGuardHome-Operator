@@ -78,6 +78,9 @@ type operatorDB struct {
 	snapshot  atomic.Pointer[operatorSnapshot]
 	mu        sync.Mutex
 	lastError string
+	state     operatorUpdateState
+	running   bool
+	manual    bool
 	path      string
 	client    *http.Client
 	cancel    context.CancelFunc
@@ -85,7 +88,21 @@ type operatorDB struct {
 	wake      chan struct{}
 }
 
+const operatorHistoryLimit = 30
+
+type operatorUpdateEntry struct {
+	At     time.Time `json:"at"`
+	Manual bool      `json:"manual"`
+	Error  string    `json:"error,omitempty"`
+}
+type operatorUpdateState struct {
+	Hours   int                   `json:"interval_hours,omitempty"`
+	History []operatorUpdateEntry `json:"history,omitempty"`
+}
+
 type operatorDBStatus struct {
+	operatorUpdateState
+	Running bool      `json:"running,omitempty"`
 	Ready   bool      `json:"ready"`
 	Updated time.Time `json:"updated"`
 	Error   string    `json:"error,omitempty"`
@@ -95,6 +112,16 @@ func newOperatorDB(dir string, client *http.Client) *operatorDB {
 	db := &operatorDB{path: filepath.Join(dir, "operators.json"), client: client, wake: make(chan struct{}, 1)}
 	if db.client == nil {
 		db.client = &http.Client{Timeout: 30 * time.Second}
+	}
+	db.state.Hours = 24
+	if b, e := os.ReadFile(db.statePath()); e == nil {
+		var saved operatorUpdateState
+		if json.Unmarshal(b, &saved) == nil && saved.Hours >= 1 && saved.Hours <= 720 {
+			db.state = saved
+			if len(saved.History) > 0 {
+				db.lastError = saved.History[0].Error
+			}
+		}
 	}
 	data, err := os.ReadFile(db.path)
 	if err == nil {
@@ -118,7 +145,7 @@ func (db *operatorDB) status() operatorDBStatus {
 	}
 	db.mu.Lock()
 	defer db.mu.Unlock()
-	status := operatorDBStatus{Error: db.lastError}
+	status := operatorDBStatus{Error: db.lastError, operatorUpdateState: db.state, Running: db.running || db.manual}
 	if s := db.snapshot.Load(); s != nil {
 		status.Ready = true
 		status.Updated = s.Updated
@@ -214,30 +241,57 @@ func (d *DNSFilter) startOperatorDB() {
 	db.done = make(chan struct{})
 	go func() {
 		defer close(db.done)
-		ticker := time.NewTicker(time.Hour)
-		defer ticker.Stop()
-		for {
-			if d.needsOperatorDB() {
-				s := db.snapshot.Load()
-				if s == nil || time.Since(s.Updated) >= 24*time.Hour {
-					fetchCtx, stop := context.WithTimeout(ctx, 90*time.Second)
-					err := db.refresh(fetchCtx)
-					stop()
-					db.mu.Lock()
-					db.lastError = ""
-					if err != nil {
-						db.lastError = err.Error()
-					}
-					db.mu.Unlock()
-				}
+		timer := time.NewTimer(time.Hour)
+		defer timer.Stop()
+		for ctx.Err() == nil {
+			needed := d.needsOperatorDB()
+			db.mu.Lock()
+			manual := db.manual
+			db.manual = false
+			wait := time.Hour
+			if snap := db.snapshot.Load(); needed && snap != nil {
+				wait = time.Until(snap.Updated.Add(time.Duration(db.state.Hours) * time.Hour))
+			} else if needed {
+				wait = 0
 			}
+			run := manual || wait <= 0
+			db.running = run
+			db.mu.Unlock()
+			if run {
+				fetchCtx, stop := context.WithTimeout(ctx, 90*time.Second)
+				err := db.refresh(fetchCtx)
+				stop()
+				if ctx.Err() != nil {
+					return
+				}
+				entry := operatorUpdateEntry{At: time.Now().UTC(), Manual: manual}
+				if err != nil {
+					entry.Error = err.Error()
+					d.logger.WarnContext(ctx, "operator database update failed", "error", err)
+				} else {
+					d.logger.InfoContext(ctx, "operator database updated", "manual", manual)
+				}
+				db.mu.Lock()
+				db.lastError = entry.Error
+				history := append([]operatorUpdateEntry{entry}, db.state.History...)
+				db.state.History = history[:min(len(history), operatorHistoryLimit)]
+				if err = db.saveState(db.state); err != nil {
+					d.logger.ErrorContext(ctx, "saving operator database update history", "error", err)
+					db.lastError = err.Error()
+				}
+				db.running = false
+				db.mu.Unlock()
+				wait = time.Hour
+			}
+			timer.Reset(wait)
 			select {
 			case <-ctx.Done():
 				return
-			case <-ticker.C:
+			case <-timer.C:
 			case <-db.wake:
 			}
 		}
+
 	}()
 }
 
@@ -268,4 +322,56 @@ func findOperatorRewrites(entries []*LegacyRewrite, host string, qtype uint16, o
 		}
 	}
 	return findRewrites(selected, host, qtype)
+}
+
+func (db *operatorDB) statePath() string {
+	return filepath.Join(filepath.Dir(db.path), "operator-updates.json")
+}
+
+// saveState persists settings and the bounded history together. Caller holds mu.
+func (db *operatorDB) saveState(state operatorUpdateState) error {
+	b, err := json.Marshal(state)
+	if err != nil {
+		return err
+	}
+	if err = os.MkdirAll(filepath.Dir(db.path), 0700); err != nil {
+		return err
+	}
+	return maybe.WriteFile(db.statePath(), b, 0600)
+}
+
+func (d *DNSFilter) handleOperatorInterval(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		Hours int `json:"interval_hours"`
+	}
+	if json.NewDecoder(r.Body).Decode(&req) != nil || req.Hours < 1 || req.Hours > 720 {
+		http.Error(w, "更新周期必须是 1 到 720 之间的整数小时", 400)
+		return
+	}
+	db := d.operators
+	db.mu.Lock()
+	next := db.state
+	next.Hours = req.Hours
+	err := db.saveState(next)
+	if err == nil {
+		db.state = next
+	}
+	db.mu.Unlock()
+	if err != nil {
+		http.Error(w, "保存更新周期失败", 500)
+		return
+	}
+	d.wakeOperatorDB()
+	w.WriteHeader(http.StatusNoContent)
+}
+
+func (d *DNSFilter) handleOperatorRefresh(w http.ResponseWriter, r *http.Request) {
+	db := d.operators
+	db.mu.Lock()
+	if !db.running {
+		db.manual = true
+	}
+	db.mu.Unlock()
+	d.wakeOperatorDB()
+	w.WriteHeader(http.StatusAccepted)
 }

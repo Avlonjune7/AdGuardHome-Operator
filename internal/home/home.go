@@ -863,6 +863,9 @@ func run(
 	sigHdlr.addWeb(web)
 
 	tlsMgr.setWebAPI(web)
+	acmeCtx, stopACME := context.WithCancel(ctx)
+	defer stopACME()
+	startACME(acmeCtx, dataDirPath, config.HTTPConfig.Address.Port() == 80, httpReg, mux, tlsMgr.reload)
 
 	statsDir, querylogDir, err := checkStatsAndQuerylogDirs(config, workDir)
 	fatalOnError(err)
