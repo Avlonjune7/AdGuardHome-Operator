@@ -2319,6 +2319,10 @@
             The ClientID, if provided in DoH, DoQ, or DoT.
           'example': 'cli123'
           'type': 'string'
+        'client_operator':
+          'description': 'Network matching the logged client IP in the current operator database.'
+          'type': 'string'
+          'enum': ['cmcc', 'unicom', 'chinanet']
         'client_info':
           '$ref': '#/components/schemas/QueryLogItemClient'
         'client_proto':

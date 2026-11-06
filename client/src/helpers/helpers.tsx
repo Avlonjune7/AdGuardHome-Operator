@@ -63,6 +63,7 @@ export const normalizeLogs = (logs: any) =>
             answer_dnssec,
             client,
             client_proto,
+            client_operator,
             client_id,
             client_info,
             elapsedMs,
@@ -108,6 +109,7 @@ export const normalizeLogs = (logs: any) =>
             reason,
             client,
             client_proto,
+            client_operator,
             client_id,
             client_info,
             /* TODO 'filterId' and 'rule' are deprecated, will be removed in 0.106 */

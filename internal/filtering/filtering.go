@@ -564,8 +564,8 @@ func (d *DNSFilter) processRewrites(host string, qtype uint16, clientIP ...netip
 	}
 
 	var operator Operator
-	if d.operators != nil && len(clientIP) > 0 {
-		operator = d.operators.snapshot.Load().lookup(clientIP[0])
+	if len(clientIP) > 0 {
+		operator = d.ClientOperator(clientIP[0])
 	}
 	rewrites, matched := findOperatorRewrites(d.conf.Rewrites, host, qtype, operator)
 	if !matched {

@@ -3,6 +3,7 @@ package querylog
 import (
 	"context"
 	"log/slog"
+	"net/netip"
 	"slices"
 	"strconv"
 	"strings"
@@ -70,6 +71,11 @@ func (l *queryLog) entryToJSON(
 
 	if entIP.Equal(entry.IP) {
 		jsonEntry["client_info"] = entry.client
+		if ip, ok := netip.AddrFromSlice(entIP); ok && l.clientOperator != nil {
+			if operator := l.clientOperator(ip); operator != "" {
+				jsonEntry["client_operator"] = operator
+			}
+		}
 	}
 
 	if entry.ClientID != "" {

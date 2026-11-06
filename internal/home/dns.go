@@ -78,7 +78,14 @@ func initDNS(
 		return fmt.Errorf("init stats: %w", err)
 	}
 
+	globalContext.filters, err = filtering.New(config.Filtering, nil)
+	if err != nil {
+		// Don't wrap the error, since it's informative enough as is.
+		return err
+	}
+
 	conf := querylog.Config{
+		ClientOperator:    globalContext.filters.ClientOperator,
 		Logger:            baseLogger.With(slogutil.KeyPrefix, "querylog"),
 		Anonymizer:        anonymizer,
 		ConfigModifier:    confModifier,
@@ -101,12 +108,6 @@ func initDNS(
 	globalContext.queryLog, err = querylog.New(conf)
 	if err != nil {
 		return fmt.Errorf("init querylog: %w", err)
-	}
-
-	globalContext.filters, err = filtering.New(config.Filtering, nil)
-	if err != nil {
-		// Don't wrap the error, since it's informative enough as is.
-		return err
 	}
 
 	err = initDNSServer(

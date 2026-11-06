@@ -223,15 +223,12 @@ func readOperatorList(resp *http.Response) ([]netip.Prefix, error) {
 	return prefixes, nil
 }
 
-func (d *DNSFilter) needsOperatorDB() bool {
-	d.confMu.RLock()
-	defer d.confMu.RUnlock()
-	for _, r := range d.conf.Rewrites {
-		if r.Enabled && r.Operator != "" {
-			return true
-		}
+// ClientOperator looks up the client IP in the currently loaded operator database.
+func (d *DNSFilter) ClientOperator(ip netip.Addr) Operator {
+	if d.operators == nil {
+		return ""
 	}
-	return false
+	return d.operators.snapshot.Load().lookup(ip)
 }
 
 func (d *DNSFilter) startOperatorDB() {
@@ -244,15 +241,13 @@ func (d *DNSFilter) startOperatorDB() {
 		timer := time.NewTimer(time.Hour)
 		defer timer.Stop()
 		for ctx.Err() == nil {
-			needed := d.needsOperatorDB()
 			db.mu.Lock()
 			manual := db.manual
 			db.manual = false
-			wait := time.Hour
-			if snap := db.snapshot.Load(); needed && snap != nil {
+			wait := time.Duration(0)
+			if snap := db.snapshot.Load(); snap != nil {
 				wait = time.Until(snap.Updated.Add(time.Duration(db.state.Hours) * time.Hour))
-			} else if needed {
-				wait = 0
+
 			}
 			run := manual || wait <= 0
 			db.running = run

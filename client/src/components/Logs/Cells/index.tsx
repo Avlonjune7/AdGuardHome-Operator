@@ -1,3 +1,5 @@
+import { operatorLabel } from '../../../helpers/rewriteOperators';
+
 import React, { Dispatch, memo, SetStateAction } from 'react';
 import classNames from 'classnames';
 import { useTranslation } from 'react-i18next';
@@ -47,6 +49,7 @@ interface RowProps {
         reason: string;
         answer_dnssec: boolean;
         client: string;
+        client_operator?: string;
         domain: string;
         elapsedMs: string;
         response: unknown[];
@@ -259,7 +262,7 @@ const Row = memo(
                 response_table_header: response?.join('\n'),
                 response_code: status,
                 client_details: 'title',
-                ip_address: client,
+                ip_address: rowProps.client_operator ? `${client}（${operatorLabel(rowProps.client_operator)}）` : client,
                 name: client_info?.name || client_id,
                 country: client_info?.whois?.country,
                 city: client_info?.whois?.city,

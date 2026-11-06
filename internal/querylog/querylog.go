@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/netip"
 	"path/filepath"
 	"sync"
 	"time"
@@ -54,6 +55,9 @@ type Config struct {
 
 	// HTTPRegister registers an HTTP handler.
 	HTTPReg aghhttp.Registrar
+
+	// ClientOperator optionally identifies the network of a displayed client IP.
+	ClientOperator func(netip.Addr) filtering.Operator
 
 	// FindClient returns client information by their IDs.
 	FindClient func(ids []string) (c *Client, err error)
@@ -156,8 +160,9 @@ func newQueryLog(conf Config) (l *queryLog, err error) {
 	}
 
 	l = &queryLog{
-		logger:     conf.Logger,
-		findClient: findClient,
+		logger:         conf.Logger,
+		findClient:     findClient,
+		clientOperator: conf.ClientOperator,
 
 		buffer: container.NewRingBuffer[*logEntry](memSize),
 

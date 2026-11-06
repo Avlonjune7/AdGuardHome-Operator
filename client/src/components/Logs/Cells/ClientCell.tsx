@@ -1,3 +1,5 @@
+import { operatorLabel } from '../../../helpers/rewriteOperators';
+
 import React, { useState } from 'react';
 import { shallowEqual, useDispatch, useSelector } from 'react-redux';
 import { nanoid } from 'nanoid';
@@ -22,6 +24,7 @@ import { RootState } from '../../../initialState';
 
 interface ClientCellProps {
     client: string;
+    client_operator?: string;
     client_id?: string;
     client_info?: {
         name: string;
@@ -37,7 +40,7 @@ interface ClientCellProps {
     reason: string;
 }
 
-const ClientCell = ({ client, client_id, client_info, domain, reason }: ClientCellProps) => {
+const ClientCell = ({ client, client_operator, client_id, client_info, domain, reason }: ClientCellProps) => {
     const { t } = useTranslation();
     const dispatch = useDispatch();
     const history = useHistory();
@@ -216,8 +219,9 @@ const ClientCell = ({ client, client_id, client_info, domain, reason }: ClientCe
             />
 
             <div className={nameClass}>
-                <div data-tip={true} data-for={id}>
+                <div className="d-flex align-items-center" data-tip={true} data-for={id}>
                     {renderFormattedClientCell(client, clientInfo, isDetailed, true)}
+                    {client_operator && <small className="ml-1 text-nowrap">{operatorLabel(client_operator)}</small>}
                 </div>
                 {isDetailed && clientName && !whoisAvailable && (
                     <Link

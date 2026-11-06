@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"os"
 	"sync"
 	"time"
@@ -34,7 +35,8 @@ type queryLog struct {
 	conf       *Config
 	anonymizer *aghnet.IPMut
 
-	findClient func(ids []string) (c *Client, err error)
+	clientOperator func(netip.Addr) filtering.Operator
+	findClient     func(ids []string) (c *Client, err error)
 
 	// buffer contains recent log entries.  The entries in this buffer must not
 	// be modified.
